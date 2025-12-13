@@ -13,7 +13,7 @@ function App() {
   const getWebSocketUrl = () => {
     if (import.meta.env.PROD) {
       // En producción, convertir https:// a wss://
-      const backendUrl = import.meta.env.VITE_API_URL || 'https://servidor-2db2.onrender.com';
+      const backendUrl = import.meta.env.VITE_API_URL || 'https://servidor-2db2.onrender.com/api';
       if (backendUrl.startsWith('https://')) {
         return backendUrl.replace('https://', 'wss://');
       }
