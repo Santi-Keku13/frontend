@@ -1,22 +1,35 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-// Recibir URLs como props del App.jsx
 const Cliente = ({ 
-  apiUrl = 'http://localhost:5000/api',  // Valor por defecto para desarrollo
-  wsUrl = 'ws://localhost:8080'          // Valor por defecto para desarrollo
+  apiUrl = 'https://servidor-2db2.onrender.com/api',  // ← CON /api
+  wsUrl = 'wss://servidor-2db2.onrender.com'          
 }) => {
   const [ultimoTurno, setUltimoTurno] = useState(null);
   const [hora, setHora] = useState(new Date());
   const [sonidoActivo, setSonidoActivo] = useState(true);
   const [conectado, setConectado] = useState(false);
+  const [debugInfo, setDebugInfo] = useState('');
   const audioRef = useRef(null);
   const ultimoTurnoRef = useRef(null);
 
   console.log('🔧 Cliente configurado con:', { apiUrl, wsUrl });
 
+  // Función para formatear turno
+  const formatearTurno = (data) => {
+    if (!data) return null;
+    
+    return {
+      caja: data.caja || data.numero || 0,
+      nombre: data.nombre || `Caja ${data.caja || data.numero || 0}`,
+      turno: data.turno || 0,
+      hora: data.hora || data.ultimaLlamada || new Date().toISOString()
+    };
+  };
+
   // WebSocket
   useEffect(() => {
     console.log(`🔌 Conectando WebSocket a: ${wsUrl}`);
+    setDebugInfo(`Conectando WS a: ${wsUrl}`);
     
     let ws;
     let reconectarTimeout;
@@ -27,39 +40,67 @@ const Cliente = ({
         
         ws.onopen = () => {
           console.log('✅ WebSocket conectado');
+          setDebugInfo('✅ WebSocket conectado');
           setConectado(true);
         };
         
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            console.log('📨 Nuevo turno recibido:', data);
+            console.log('📨 Mensaje WS recibido:', data);
             
-            // Verificar si es un turno nuevo
-            if (!ultimoTurnoRef.current || data.turno > ultimoTurnoRef.current.turno) {
-              setUltimoTurno(data);
-              ultimoTurnoRef.current = data;
+            let turnoData;
+            
+            // Manejar diferentes formatos
+            if (data.ultimoTurno) {
+              turnoData = data.ultimoTurno;
+            } else if (data.type === 'llamada') {
+              turnoData = data;
+            } else if (data.caja && data.turno) {
+              turnoData = data;
+            } else if (data.data && data.data.caja) {
+              turnoData = data.data;
+            } else if (data.type === 'heartbeat') {
+              console.log('❤️ Heartbeat');
+              return;
+            } else if (data.type === 'init') {
+              console.log('📋 Datos iniciales recibidos');
+              return;
+            }
+            
+            if (turnoData) {
+              const turnoFormateado = formatearTurno(turnoData);
               
-              // Reproducir sonido si está activo
-              if (sonidoActivo) {
-                reproducirSonido();
+              if (turnoFormateado && (!ultimoTurnoRef.current || 
+                  turnoFormateado.turno > ultimoTurnoRef.current.turno)) {
+                
+                console.log('🔄 Nuevo turno detectado:', turnoFormateado);
+                setUltimoTurno(turnoFormateado);
+                ultimoTurnoRef.current = turnoFormateado;
+                
+                if (sonidoActivo) {
+                  setTimeout(() => reproducirSonido(), 500);
+                }
               }
             }
+            
           } catch (error) {
             console.error('Error parseando mensaje:', error);
+            setDebugInfo(`Error WS: ${error.message}`);
           }
         };
         
         ws.onerror = (error) => {
           console.error('❌ Error WebSocket:', error);
+          setDebugInfo(`Error WS: ${error.type}`);
           setConectado(false);
         };
         
         ws.onclose = () => {
           console.log('🔌 WebSocket desconectado');
+          setDebugInfo('🔌 WS desconectado - Reconectando...');
           setConectado(false);
           
-          // Intentar reconectar después de 3 segundos
           reconectarTimeout = setTimeout(() => {
             console.log('🔄 Intentando reconectar...');
             conectarWebSocket();
@@ -68,6 +109,7 @@ const Cliente = ({
         
       } catch (error) {
         console.error('Error creando WebSocket:', error);
+        setDebugInfo(`Error: ${error.message}`);
         setConectado(false);
       }
     };
@@ -88,29 +130,37 @@ const Cliente = ({
   useEffect(() => {
     const cargarUltimoTurno = async () => {
       try {
-        console.log(`🔄 Polling a: ${apiUrl}/ultimo-turno`);
-        const response = await fetch(`${apiUrl}/ultimo-turno`);
+        const url = `${apiUrl}/ultimo-turno`;
+        console.log(`🔄 Polling a: ${url}`);
+        setDebugInfo(`Polling: ${url}`);
+        
+        const response = await fetch(url);
         
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
         const data = await response.json();
+        
         if (data.ultimoTurno) {
-          // Verificar si es un turno nuevo
-          if (!ultimoTurnoRef.current || data.ultimoTurno.turno > ultimoTurnoRef.current.turno) {
-            console.log('📨 Turno recibido via polling:', data.ultimoTurno);
-            setUltimoTurno(data.ultimoTurno);
-            ultimoTurnoRef.current = data.ultimoTurno;
+          const turnoFormateado = formatearTurno(data.ultimoTurno);
+          
+          if (turnoFormateado && (!ultimoTurnoRef.current || 
+              turnoFormateado.turno > ultimoTurnoRef.current.turno)) {
             
-            // Reproducir sonido si está activo
+            console.log('📨 Turno recibido via polling:', turnoFormateado);
+            setDebugInfo(`Turno ${turnoFormateado.turno} - Caja ${turnoFormateado.caja}`);
+            setUltimoTurno(turnoFormateado);
+            ultimoTurnoRef.current = turnoFormateado;
+            
             if (sonidoActivo) {
-              reproducirSonido();
+              setTimeout(() => reproducirSonido(), 500);
             }
           }
         }
       } catch (error) {
         console.error('Error en polling:', error);
+        setDebugInfo(`Error polling: ${error.message}`);
       }
     };
     
@@ -133,48 +183,79 @@ const Cliente = ({
       try {
         audioRef.current.currentTime = 0;
         
-        audioRef.current.play().then(() => {
-          console.log('🔊 Sonido reproducido');
-        }).catch(error => {
-          console.log('Audio autoplay bloqueado:', error);
-          // Mostrar notificación para activar sonido
-          if (!error.message.includes('user gesture')) {
-            alert('Haz click en la pantalla para activar el sonido');
-          }
-        });
+        // Intentar reproducción automática
+        const playPromise = audioRef.current.play();
+        
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            console.log('🔊 Sonido reproducido');
+            setDebugInfo('🔊 Sonido reproducido');
+          }).catch(error => {
+            console.log('Audio autoplay bloqueado:', error);
+            
+            // Mostrar botón para activar sonido
+            if (!window.sonidoActivado) {
+              setDebugInfo('⚠️ Click para activar sonido');
+              
+              // Crear botón overlay para activar sonido
+              const activarSonido = () => {
+                audioRef.current.play();
+                setDebugInfo('🔊 Sonido activado manualmente');
+                window.sonidoActivado = true;
+                document.removeEventListener('click', activarSonido);
+              };
+              
+              document.addEventListener('click', activarSonido);
+            }
+          });
+        }
       } catch (error) {
         console.error('Error reproduciendo sonido:', error);
+        setDebugInfo(`Error sonido: ${error.message}`);
       }
     } else {
       console.warn('Audio ref no disponible');
+      setDebugInfo('❌ Audio no disponible');
     }
   };
 
   // Alternar sonido activo/inactivo
   const toggleSonido = () => {
-    setSonidoActivo(!sonidoActivo);
+    const nuevoEstado = !sonidoActivo;
+    setSonidoActivo(nuevoEstado);
+    setDebugInfo(`Sonido ${nuevoEstado ? 'activado' : 'desactivado'}`);
   };
 
+  // Render
   return (
     <div style={styles.container}>
-      {/* Elemento de audio */}
       <audio 
         ref={audioRef} 
         preload="auto"
         style={{ display: 'none' }}
       >
         <source src="/assets/llamador.mp3" type="audio/mpeg" />
+        <source src="https://assets.mixkit.co/active_storage/sfx/257/257-preview.mp3" type="audio/mpeg" />
+        Tu navegador no soporta audio
       </audio>
       
-      {/* Indicador de conexión */}
-      <div style={{
-        ...styles.conexionIndicador,
-        backgroundColor: conectado ? '#4CAF50' : '#FF9800'
-      }}>
-        {conectado ? '🟢 CONECTADO' : '🟡 CONECTANDO...'}
+      {/* Panel de debug */}
+      <div style={styles.debugPanel}>
+        <div>API: {apiUrl}</div>
+        <div>WS: {wsUrl}</div>
+        <div>Estado: {conectado ? '🟢' : '🔴'}</div>
+        <div>Sonido: {sonidoActivo ? '🔊' : '🔇'}</div>
+        <div>Debug: {debugInfo}</div>
+        <div>Turno actual: {ultimoTurno ? `Caja ${ultimoTurno.caja} - #${ultimoTurno.turno}` : 'Ninguno'}</div>
       </div>
       
-      {/* Botón para activar/desactivar sonido */}
+      <div style={{
+        ...styles.conexionIndicador,
+        backgroundColor: conectado ? '#4CAF50' : '#f44336'
+      }}>
+        {conectado ? '🟢 CONECTADO' : '🔴 DESCONECTADO'}
+      </div>
+      
       <button 
         onClick={toggleSonido}
         style={styles.botonSonido}
@@ -182,15 +263,6 @@ const Cliente = ({
       >
         {sonidoActivo ? '🔊' : '🔇'}
       </button>
-
-      {/* Info de conexión (solo desarrollo) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div style={styles.debugInfo}>
-          <div>API: {apiUrl}</div>
-          <div>WebSocket: {wsUrl}</div>
-          <div>Conectado: {conectado ? 'Sí' : 'No'}</div>
-        </div>
-      )}
 
       <div style={styles.header}>
         <div style={styles.fechaHora}>
@@ -203,11 +275,7 @@ const Cliente = ({
             })}
           </div>
           <div style={styles.horaActual}>
-            {hora.toLocaleTimeString('es-ES', {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit'
-            })}
+            {hora.toLocaleTimeString('es-ES')}
           </div>
         </div>
         
@@ -225,62 +293,14 @@ const Cliente = ({
               <div style={styles.cajaLabel}>CAJA</div>
               <div style={styles.cajaNumero}>{ultimoTurno.caja}</div>
             </div>
-            
-            {/* Información adicional del turno */}
-            <div style={styles.infoTurno}>
-              <div>TURNO</div>
-              <div style={styles.turnoNumero}>#{ultimoTurno.turno}</div>
-              <div style={styles.horaTurno}>
-                {new Date(ultimoTurno.hora).toLocaleTimeString('es-ES', {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </div>
-            </div>
-            
-            {/* Indicador de sonido */}
-            {sonidoActivo && (
-              <div style={styles.indicadorSonido}>
-                🔊 Sonido activo
-              </div>
-            )}
           </>
         ) : (
           <div style={styles.esperando}>
             <div style={styles.iconoEspera}>⏳</div>
             <div style={styles.textoEspera}>ESPERANDO TURNO</div>
             <div style={styles.subtextoEspera}>
-              {sonidoActivo ? '🔊 Sonido activado' : '🔇 Sonido silenciado'}
+              Sistema en línea
             </div>
-            <div style={styles.estadoConexion}>
-              {conectado ? 'Conectado al sistema' : 'Conectando...'}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Información del estado */}
-      <div style={styles.estadoContainer}>
-        <div style={styles.estadoItem}>
-          <span style={styles.estadoLabel}>Estado sonido:</span>
-          <span style={sonidoActivo ? styles.estadoActivo : styles.estadoInactivo}>
-            {sonidoActivo ? 'ACTIVO' : 'SILENCIADO'}
-          </span>
-        </div>
-        
-        <div style={styles.estadoItem}>
-          <span style={styles.estadoLabel}>Conexión:</span>
-          <span style={conectado ? styles.estadoActivo : styles.estadoInactivo}>
-            {conectado ? 'ONLINE' : 'OFFLINE'}
-          </span>
-        </div>
-        
-        {ultimoTurno && (
-          <div style={styles.estadoItem}>
-            <span style={styles.estadoLabel}>Último turno:</span>
-            <span style={styles.estadoValor}>
-              Caja {ultimoTurno.caja} - #{ultimoTurno.turno}
-            </span>
           </div>
         )}
       </div>
@@ -291,292 +311,146 @@ const Cliente = ({
 const styles = {
   container: {
     minHeight: '100vh',
-    backgroundColor: '#da3b3bff',
+    backgroundColor: '#da3b3b',
     color: 'white',
-    padding: '20px',
     fontFamily: 'Arial, sans-serif',
-    position: 'relative'
+    position: 'relative',
+    overflow: 'hidden'
   },
-  
-  // Indicador de conexión
+  debugPanel: {
+    position: 'absolute',
+    top: '10px',
+    left: '10px',
+    background: 'rgba(0,0,0,0.7)',
+    color: '#0f0',
+    padding: '10px',
+    borderRadius: '5px',
+    fontSize: '12px',
+    fontFamily: 'monospace',
+    zIndex: 1000,
+    maxWidth: '300px'
+  },
   conexionIndicador: {
     position: 'absolute',
     top: '20px',
-    left: '20px',
-    padding: '8px 15px',
-    borderRadius: '20px',
+    right: '80px',
+    padding: '10px 20px',
+    borderRadius: '25px',
     fontSize: '14px',
-    fontWeight: 'bold',
-    zIndex: 100
+    fontWeight: 'bold'
   },
-  
-  // Botón de sonido
   botonSonido: {
     position: 'absolute',
     top: '20px',
     right: '20px',
-    background: 'rgba(255, 255, 255, 0.2)',
+    background: 'rgba(255,255,255,0.2)',
     border: '2px solid white',
     color: 'white',
     borderRadius: '50%',
     width: '50px',
     height: '50px',
     fontSize: '24px',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'all 0.3s',
-    zIndex: 100
+    cursor: 'pointer'
   },
-  
-  // Info de debug (solo desarrollo)
-  debugInfo: {
-    position: 'absolute',
-    top: '80px',
-    left: '20px',
-    background: 'rgba(0, 0, 0, 0.5)',
-    padding: '10px',
-    borderRadius: '5px',
-    fontSize: '12px',
-    fontFamily: 'monospace',
-    maxWidth: '300px',
-    display: process.env.NODE_ENV === 'development' ? 'block' : 'none'
-  },
-  
   header: {
     textAlign: 'center',
+    paddingTop: '100px',
     marginBottom: '40px'
   },
-  
   fechaHora: {
     marginBottom: '20px'
   },
-  
   fecha: {
-    fontSize: '18px',
-    color: '#ffebee'
+    fontSize: '20px',
+    marginBottom: '10px'
   },
-  
   horaActual: {
-    fontSize: '36px',
-    fontWeight: 'bold',
-    color: '#e7ece6ff'
+    fontSize: '40px',
+    fontWeight: 'bold'
   },
-  
   titulo: {
     fontSize: '48px',
-    color: '#f8f7f5ff',
-    textTransform: 'uppercase',
-    letterSpacing: '3px',
-    marginTop: '10px'
+    marginTop: '20px'
   },
-  
   anuncio: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: '30px',
-    padding: '50px',
+    padding: '40px',
     textAlign: 'center',
-    minHeight: '500px',
+    margin: '0 20px',
+    minHeight: '400px',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
-    alignItems: 'center',
-    transition: 'all 0.5s ease',
-    border: '5px solid rgba(255, 255, 255, 0.2)',
-    margin: '0 auto',
-    maxWidth: '800px'
+    alignItems: 'center'
   },
-  
   anuncioConTurno: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderColor: '#ffffff',
-    boxShadow: '0 0 50px rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(255,255,255,0.25)',
     animation: 'pulse 2s infinite'
   },
-  
   mensaje: {
-    fontSize: '48px',
-    color: '#ffffff',
-    marginBottom: '30px',
-    textShadow: '3px 3px 6px rgba(0, 0, 0, 0.4)',
-    fontWeight: '900',
-    letterSpacing: '2px'
+    fontSize: '36px',
+    marginBottom: '20px',
+    fontWeight: 'bold'
   },
-  
   cajaDisplay: {
-    margin: '40px 0'
+    margin: '30px 0'
   },
-  
   cajaLabel: {
-    fontSize: '32px',
-    color: '#ffebee',
-    marginBottom: '15px',
-    textShadow: '2px 2px 4px rgba(0, 0, 0, 0.3)',
-    letterSpacing: '2px'
+    fontSize: '28px',
+    marginBottom: '10px'
   },
-  
   cajaNumero: {
-    fontSize: '160px',
-    fontWeight: '900',
-    color: '#ffffff',
-    textShadow: '5px 5px 10px rgba(0, 0, 0, 0.5)',
-    lineHeight: 1,
-    margin: '20px 0'
+    fontSize: '120px',
+    fontWeight: 'bold'
   },
-  
   infoTurno: {
-    background: 'rgba(255, 255, 255, 0.2)',
-    padding: '25px 50px',
-    borderRadius: '20px',
-    marginTop: '30px',
-    border: '3px solid rgba(255, 255, 255, 0.4)'
+    marginTop: '20px',
+    padding: '20px',
+    background: 'rgba(255,255,255,0.2)',
+    borderRadius: '15px'
   },
-  
   turnoNumero: {
-    fontSize: '60px',
+    fontSize: '48px',
     fontWeight: 'bold',
-    color: '#ffffff',
     margin: '10px 0'
   },
-  
   horaTurno: {
-    fontSize: '24px',
-    color: '#ffebee',
-    marginTop: '10px'
+    fontSize: '20px'
   },
-  
-  indicadorSonido: {
-    marginTop: '30px',
-    padding: '12px 25px',
-    backgroundColor: 'rgba(76, 175, 80, 0.9)',
-    color: 'white',
-    borderRadius: '30px',
-    fontSize: '18px',
-    fontWeight: 'bold',
-    animation: 'fadeInOut 2s infinite'
-  },
-  
   esperando: {
     textAlign: 'center'
   },
-  
   iconoEspera: {
-    fontSize: '100px',
-    marginBottom: '30px',
-    opacity: 0.8,
+    fontSize: '80px',
+    marginBottom: '20px',
     animation: 'spin 4s linear infinite'
   },
-  
   textoEspera: {
-    fontSize: '42px',
-    color: '#ffffff',
-    marginBottom: '15px',
-    textShadow: '2px 2px 4px rgba(0, 0, 0, 0.3)',
-    letterSpacing: '2px'
+    fontSize: '36px',
+    fontWeight: 'bold'
   },
-  
   subtextoEspera: {
-    fontSize: '20px',
-    color: '#ffebee',
-    opacity: 0.9,
-    marginBottom: '10px'
-  },
-  
-  estadoConexion: {
-    fontSize: '16px',
-    color: '#e7ece6ff',
-    marginTop: '20px',
-    padding: '10px 20px',
-    background: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: '15px'
-  },
-  
-  estadoContainer: {
-    marginTop: '40px',
-    padding: '25px',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: '20px',
-    display: 'flex',
-    justifyContent: 'center',
-    gap: '50px',
-    flexWrap: 'wrap',
-    maxWidth: '800px',
-    margin: '40px auto'
-  },
-  
-  estadoItem: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '8px',
-    minWidth: '150px'
-  },
-  
-  estadoLabel: {
-    fontSize: '14px',
-    color: '#ffebee',
-    opacity: 0.8,
-    textTransform: 'uppercase',
-    letterSpacing: '1px'
-  },
-  
-  estadoActivo: {
     fontSize: '18px',
-    fontWeight: 'bold',
-    color: '#4CAF50',
-    backgroundColor: 'rgba(76, 175, 80, 0.2)',
-    padding: '8px 20px',
-    borderRadius: '20px',
-    textShadow: '0 1px 2px rgba(0,0,0,0.2)'
-  },
-  
-  estadoInactivo: {
-    fontSize: '18px',
-    fontWeight: 'bold',
-    color: '#f44336',
-    backgroundColor: 'rgba(244, 67, 54, 0.2)',
-    padding: '8px 20px',
-    borderRadius: '20px',
-    textShadow: '0 1px 2px rgba(0,0,0,0.2)'
-  },
-  
-  estadoValor: {
-    fontSize: '20px',
-    fontWeight: 'bold',
-    color: '#ffffff',
-    textAlign: 'center'
+    marginTop: '10px',
+    opacity: 0.8
   }
 };
 
-// Agregar animaciones CSS globales
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-  @keyframes pulse {
-    0% { 
-      box-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
-      transform: scale(1);
+// Agregar estilos globales
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement('style');
+  styleSheet.textContent = `
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.8; }
     }
-    50% { 
-      box-shadow: 0 0 60px rgba(255, 255, 255, 0.6);
-      transform: scale(1.01);
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
     }
-    100% { 
-      box-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
-      transform: scale(1);
-    }
-  }
-  
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  
-  @keyframes fadeInOut {
-    0%, 100% { opacity: 0.7; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.05); }
-  }
-`;
-document.head.appendChild(styleSheet);
+  `;
+  document.head.appendChild(styleSheet);
+}
 
 export default Cliente;
