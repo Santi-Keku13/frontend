@@ -7,11 +7,23 @@ const ClienteFuncional = ({
   const [ultimoTurno, setUltimoTurno] = useState(null);
   const [conectado, setConectado] = useState(false);
   const [debug, setDebug] = useState('Esperando conexión...');
+  const [sonidoActivo, setSonidoActivo] = useState(true);
   const ultimoTurnoRef = useRef(null);
   const wsRef = useRef(null);
+  const audioRef = useRef(null);
   const contadorRef = useRef(0);
 
   console.log('🚀 Cliente Funcional iniciado');
+
+  // Inicializar audio
+  useEffect(() => {
+    // Crear elemento de audio con el sonido local
+    audioRef.current = new Audio('/assets/llamador.mp3');
+    audioRef.current.preload = 'auto';
+    audioRef.current.volume = 0.7;
+    
+    console.log('🔊 Audio inicializado con:', '/assets/llamador.mp3');
+  }, []);
 
   // 1. WebSocket SIMPLE pero ROBUSTO
   useEffect(() => {
@@ -59,7 +71,9 @@ const ClienteFuncional = ({
             setDebug(`Caja ${nuevoTurno.caja} - Turno ${nuevoTurno.turno} ✅`);
             
             // Reproducir sonido
-            reproducirSonido();
+            if (sonidoActivo) {
+              reproducirSonido();
+            }
             
           } else if (data.type === 'init' && data.data) {
             console.log('📋 Datos iniciales recibidos');
@@ -106,7 +120,7 @@ const ClienteFuncional = ({
         wsRef.current.close();
       }
     };
-  }, [wsUrl]);
+  }, [wsUrl, sonidoActivo]);
 
   // 2. Polling AGGRESIVO como respaldo
   useEffect(() => {
@@ -135,6 +149,10 @@ const ClienteFuncional = ({
             setUltimoTurno(nuevoTurno);
             ultimoTurnoRef.current = nuevoTurno;
             setDebug(`Polling: Caja ${nuevoTurno.caja} - Turno ${nuevoTurno.turno}`);
+            
+            if (sonidoActivo) {
+              reproducirSonido();
+            }
           }
         }
       } catch (error) {
@@ -146,22 +164,68 @@ const ClienteFuncional = ({
     poll();
     const interval = setInterval(poll, 2000);
     return () => clearInterval(interval);
-  }, [apiUrl]);
+  }, [apiUrl, sonidoActivo]);
 
-  // 3. Función de sonido
+  // 3. Función de sonido MEJORADA con fallback
   const reproducirSonido = () => {
+    if (!audioRef.current) {
+      console.log('🔊 Audio ref no disponible, inicializando...');
+      audioRef.current = new Audio('/assets/llamador.mp3');
+      audioRef.current.preload = 'auto';
+      audioRef.current.volume = 0.7;
+    }
+    
     try {
-      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/257/257-preview.mp3');
-      audio.volume = 0.7;
-      audio.play().catch(() => {
-        console.log('Sonido necesita interacción del usuario');
-      });
+      // Resetear el audio al inicio
+      audioRef.current.currentTime = 0;
+      
+      // Intentar reproducir
+      const playPromise = audioRef.current.play();
+      
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          console.log('🔊 Sonido reproducido exitosamente');
+        }).catch(error => {
+          console.log('🔇 Sonido bloqueado, necesita interacción del usuario');
+          console.log('💡 Haz click en la pantalla para activar el sonido');
+          
+          // Crear un botón overlay para activar sonido
+          if (!window.sonidoActivadoManual) {
+            const activarSonido = () => {
+              audioRef.current.play();
+              window.sonidoActivadoManual = true;
+              document.body.removeEventListener('click', activarSonido);
+              setDebug('🔊 Sonido activado manualmente');
+            };
+            
+            document.body.addEventListener('click', activarSonido);
+          }
+        });
+      }
     } catch (error) {
-      console.error('Error sonido:', error);
+      console.error('❌ Error reproduciendo sonido:', error);
+      
+      // Fallback a sonido online si el local falla
+      try {
+        const fallbackAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/257/257-preview.mp3');
+        fallbackAudio.volume = 0.7;
+        fallbackAudio.play().catch(() => {
+          console.log('Fallback audio también bloqueado');
+        });
+      } catch (fallbackError) {
+        console.error('Fallback audio también falló:', fallbackError);
+      }
     }
   };
 
-  // 4. Render SIMPLE pero FUNCIONAL
+  // 4. Alternar sonido
+  const toggleSonido = () => {
+    const nuevoEstado = !sonidoActivo;
+    setSonidoActivo(nuevoEstado);
+    setDebug(`Sonido ${nuevoEstado ? 'activado 🔊' : 'desactivado 🔇'}`);
+  };
+
+  // 5. Render
   return (
     <div style={styles.container}>
       {/* Panel de control */}
@@ -177,25 +241,43 @@ const ClienteFuncional = ({
           <div>{debug}</div>
           <div>Mensajes: {contadorRef.current}</div>
           <div>Último: {ultimoTurno ? `Caja ${ultimoTurno.caja} - Turno ${ultimoTurno.turno}` : 'Ninguno'}</div>
+          <div>Sonido: {sonidoActivo ? '🔊 ON' : '🔇 OFF'}</div>
         </div>
         
-        <button 
-          onClick={() => {
-            const testTurno = {
-              caja: Math.floor(Math.random() * 12) + 1,
-              turno: (ultimoTurnoRef.current?.turno || 0) + 1,
-              hora: new Date().toISOString(),
-              id: Date.now()
-            };
-            console.log('🧪 Test manual:', testTurno);
-            setUltimoTurno(testTurno);
-            ultimoTurnoRef.current = testTurno;
-            setDebug(`TEST: Caja ${testTurno.caja} - Turno ${testTurno.turno}`);
-          }}
-          style={styles.testButton}
-        >
-          🧪 TEST MANUAL
-        </button>
+        <div style={styles.botonesControl}>
+          <button 
+            onClick={toggleSonido}
+            style={{
+              ...styles.botonControl,
+              background: sonidoActivo ? '#4CAF50' : '#f44336'
+            }}
+            title={sonidoActivo ? "Silenciar sonido" : "Activar sonido"}
+          >
+            {sonidoActivo ? '🔊' : '🔇'}
+          </button>
+          
+          <button 
+            onClick={() => {
+              const testTurno = {
+                caja: Math.floor(Math.random() * 12) + 1,
+                turno: (ultimoTurnoRef.current?.turno || 0) + 1,
+                hora: new Date().toISOString(),
+                id: Date.now()
+              };
+              console.log('🧪 Test manual:', testTurno);
+              setUltimoTurno(testTurno);
+              ultimoTurnoRef.current = testTurno;
+              setDebug(`TEST: Caja ${testTurno.caja} - Turno ${testTurno.turno}`);
+              if (sonidoActivo) reproducirSonido();
+            }}
+            style={{
+              ...styles.botonControl,
+              background: '#FF9800'
+            }}
+          >
+            🧪 TEST
+          </button>
+        </div>
       </div>
 
       {/* Display principal */}
@@ -225,12 +307,22 @@ const ClienteFuncional = ({
                 </div>
               </div>
             </div>
+            
+            {/* Indicador de sonido */}
+            {sonidoActivo && (
+              <div style={styles.indicadorSonido}>
+                🔊 SONIDO ACTIVO
+              </div>
+            )}
           </>
         ) : (
           <div style={styles.esperando}>
             <div style={styles.iconoEspera}>⏳</div>
             <div style={styles.textoEspera}>SISTEMA ACTIVO</div>
             <div style={styles.subtextoEspera}>Esperando llamada...</div>
+            <div style={styles.estadoSonido}>
+              Sonido: {sonidoActivo ? 'ACTIVADO 🔊' : 'SILENCIADO 🔇'}
+            </div>
           </div>
         )}
       </div>
@@ -263,7 +355,9 @@ const styles = {
     padding: '10px 20px',
     borderRadius: '20px',
     fontWeight: 'bold',
-    fontSize: '14px'
+    fontSize: '14px',
+    minWidth: '120px',
+    textAlign: 'center'
   },
   debugPanel: {
     flex: 1,
@@ -272,16 +366,23 @@ const styles = {
     background: 'rgba(255,255,255,0.1)',
     borderRadius: '5px',
     fontSize: '12px',
-    fontFamily: 'monospace'
+    fontFamily: 'monospace',
+    maxHeight: '80px',
+    overflowY: 'auto'
   },
-  testButton: {
-    background: '#4CAF50',
+  botonesControl: {
+    display: 'flex',
+    gap: '10px'
+  },
+  botonControl: {
     color: 'white',
     border: 'none',
-    padding: '10px 20px',
+    padding: '10px 15px',
     borderRadius: '5px',
     cursor: 'pointer',
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    fontSize: '16px',
+    minWidth: '50px'
   },
   display: {
     marginTop: '100px',
@@ -318,7 +419,8 @@ const styles = {
   cajaNumero: {
     fontSize: '160px',
     fontWeight: 'bold',
-    textShadow: '0 0 20px rgba(255,255,255,0.7)'
+    textShadow: '0 0 20px rgba(255,255,255,0.7)',
+    lineHeight: 1
   },
   infoContainer: {
     display: 'flex',
@@ -327,10 +429,12 @@ const styles = {
     marginTop: '40px',
     padding: '20px',
     background: 'rgba(255,255,255,0.1)',
-    borderRadius: '15px'
+    borderRadius: '15px',
+    maxWidth: '600px'
   },
   turnoInfo: {
-    textAlign: 'center'
+    textAlign: 'center',
+    flex: 1
   },
   turnoNumero: {
     fontSize: '48px',
@@ -338,12 +442,22 @@ const styles = {
     marginTop: '10px'
   },
   horaInfo: {
-    textAlign: 'center'
+    textAlign: 'center',
+    flex: 1
   },
   horaTexto: {
     fontSize: '24px',
     fontWeight: 'bold',
     marginTop: '10px'
+  },
+  indicadorSonido: {
+    marginTop: '30px',
+    padding: '10px 20px',
+    background: 'rgba(76, 175, 80, 0.8)',
+    color: 'white',
+    borderRadius: '20px',
+    fontWeight: 'bold',
+    animation: 'fadeInOut 2s infinite'
   },
   esperando: {
     textAlign: 'center'
@@ -360,22 +474,49 @@ const styles = {
   },
   subtextoEspera: {
     fontSize: '20px',
-    opacity: 0.8
+    opacity: 0.8,
+    marginBottom: '20px'
+  },
+  estadoSonido: {
+    padding: '10px 20px',
+    background: 'rgba(255,255,255,0.1)',
+    borderRadius: '10px',
+    fontSize: '16px'
   }
 };
 
-// Agregar animaciones
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.8; }
-  }
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-`;
-document.head.appendChild(styleSheet);
+// Agregar animaciones CSS
+useEffect(() => {
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes pulse {
+      0%, 100% { 
+        box-shadow: 0 0 20px rgba(76, 175, 80, 0.3);
+        transform: scale(1);
+      }
+      50% { 
+        box-shadow: 0 0 40px rgba(76, 175, 80, 0.6);
+        transform: scale(1.01);
+      }
+    }
+    
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    @keyframes fadeInOut {
+      0%, 100% { opacity: 0.7; }
+      50% { opacity: 1; }
+    }
+  `;
+  document.head.appendChild(style);
+  
+  return () => {
+    if (style.parentNode) {
+      style.parentNode.removeChild(style);
+    }
+  };
+}, []);
 
 export default ClienteFuncional;
