@@ -239,23 +239,6 @@ const Cliente = ({
         Tu navegador no soporta audio
       </audio>
       
-      {/* Panel de debug */}
-      <div style={styles.debugPanel}>
-        <div>API: {apiUrl}</div>
-        <div>WS: {wsUrl}</div>
-        <div>Estado: {conectado ? '🟢' : '🔴'}</div>
-        <div>Sonido: {sonidoActivo ? '🔊' : '🔇'}</div>
-        <div>Debug: {debugInfo}</div>
-        <div>Turno actual: {ultimoTurno ? `Caja ${ultimoTurno.caja} - #${ultimoTurno.turno}` : 'Ninguno'}</div>
-      </div>
-      
-      <div style={{
-        ...styles.conexionIndicador,
-        backgroundColor: conectado ? '#4CAF50' : '#f44336'
-      }}>
-        {conectado ? '🟢 CONECTADO' : '🔴 DESCONECTADO'}
-      </div>
-      
       <button 
         onClick={toggleSonido}
         style={styles.botonSonido}

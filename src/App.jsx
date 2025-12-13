@@ -6,22 +6,22 @@ import './index.css';
 function App() {
   const [modo, setModo] = useState('cajero');
   
-  // URL dinámica para desarrollo/producción
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  // URL BASE (sin /api al final para WebSocket)
+  const BASE_URL = import.meta.env.PROD 
+    ? 'https://servidor-2db2.onrender.com'
+    : 'http://localhost:5000';
   
-  // URL WebSocket dinámica
-  const getWebSocketUrl = () => {
-    if (import.meta.env.PROD) {
-      // En producción, convertir https:// a wss://
-      const backendUrl = import.meta.env.VITE_API_URL || 'https://servidor-2db2.onrender.com/api';
-      if (backendUrl.startsWith('https://')) {
-        return backendUrl.replace('https://', 'wss://');
-      }
-      return `wss://${backendUrl}`;
-    }
-    return 'ws://localhost:8080';
-  };
+  // API URL (con /api para las rutas REST)
+  const API_URL = `${BASE_URL}/api`;
+  
+  // WebSocket URL (sin /api)
+  const WS_URL = BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://');
 
+  console.log('🔧 URLs configuradas:');
+  console.log('  Base:', BASE_URL);
+  console.log('  API:', API_URL);
+  console.log('  WebSocket:', WS_URL);
+  
   return (
     <div className="app">
       {/* Selector de modo */}
@@ -40,21 +40,26 @@ function App() {
         </button>
       </div>
 
-      {/* Pasar las URLs como props a los componentes */}
+      {/* Mostrar componente según el modo */}
       {modo === 'cajero' ? (
         <Cajero apiUrl={API_URL} />
       ) : (
-        <Cliente apiUrl={API_URL} wsUrl={getWebSocketUrl()} />
+        <Cliente apiUrl={API_URL} wsUrl={WS_URL} />
       )}
 
-      {/* Info dinámica para dev/prod */}
+      {/* Info del sistema */}
       <div className="info-dev">
         <p>
           {import.meta.env.PROD ? '🚀 PRODUCCIÓN' : '🛠️ DESARROLLO'} | 
-          API: {API_URL} | 
-          WebSocket: {getWebSocketUrl()}
+          Modo: <strong>{modo.toUpperCase()}</strong>
         </p>
-        <p>Modo: {modo} | Ambiente: {import.meta.env.MODE}</p>
+        <p>
+          API: <code>{API_URL}</code> | 
+          WebSocket: <code>{WS_URL}</code>
+        </p>
+        <p className="hint">
+          💡 El cliente se actualizará en tiempo real cuando llames un turno desde el cajero
+        </p>
       </div>
     </div>
   );
