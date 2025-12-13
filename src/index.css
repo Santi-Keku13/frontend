@@ -1,0 +1,53 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.app {
+  min-height: 100vh;
+}
+
+.modo-selector {
+  background: #2c3e50;
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.modo-selector button {
+  background: #34495e;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.3s;
+}
+
+.modo-selector button:hover {
+  background: #3c5a77;
+}
+
+.modo-selector button.active {
+  background: #3498db;
+  box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+}
+
+.info-dev {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #2c3e50;
+  color: #95a5a6;
+  text-align: center;
+  padding: 5px;
+  font-size: 12px;
+}

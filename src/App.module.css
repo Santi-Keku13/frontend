@@ -1,0 +1,32 @@
+/* Para desarrollo: mostrar ambos paneles */
+.desarrolloContainer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100vh;
+}
+
+.panelCajero {
+  border-right: 3px solid #ccc;
+  overflow: auto;
+}
+
+.panelCliente {
+  overflow: auto;
+}
+
+/* Para producción - pantalla completa */
+.pantallaCompleta {
+  min-height: 100vh;
+}
+
+/* Responsive para desarrollo */
+@media (max-width: 1024px) {
+  .desarrolloContainer {
+    grid-template-columns: 1fr;
+  }
+  
+  .panelCajero {
+    border-right: none;
+    border-bottom: 3px solid #ccc;
+  }
+}
