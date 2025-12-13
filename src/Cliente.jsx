@@ -1,50 +1,105 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const API_URL = 'http://localhost:5000/api';
-
-const Cliente = () => {
+// Recibir URLs como props del App.jsx
+const Cliente = ({ 
+  apiUrl = 'http://localhost:5000/api',  // Valor por defecto para desarrollo
+  wsUrl = 'ws://localhost:8080'          // Valor por defecto para desarrollo
+}) => {
   const [ultimoTurno, setUltimoTurno] = useState(null);
   const [hora, setHora] = useState(new Date());
   const [sonidoActivo, setSonidoActivo] = useState(true);
+  const [conectado, setConectado] = useState(false);
   const audioRef = useRef(null);
-  const ultimoTurnoRef = useRef(null); // Para comparar sin re-render
+  const ultimoTurnoRef = useRef(null);
+
+  console.log('🔧 Cliente configurado con:', { apiUrl, wsUrl });
 
   // WebSocket
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:8080');
+    console.log(`🔌 Conectando WebSocket a: ${wsUrl}`);
     
-    ws.onmessage = (event) => {
+    let ws;
+    let reconectarTimeout;
+    
+    const conectarWebSocket = () => {
       try {
-        const data = JSON.parse(event.data);
-        console.log('📨 Nuevo turno recibido:', data);
+        ws = new WebSocket(wsUrl);
         
-        // Verificar si es un turno nuevo
-        if (!ultimoTurnoRef.current || data.turno > ultimoTurnoRef.current.turno) {
-          setUltimoTurno(data);
-          ultimoTurnoRef.current = data;
-          
-          // Reproducir sonido si está activo
-          if (sonidoActivo) {
-            reproducirSonido();
+        ws.onopen = () => {
+          console.log('✅ WebSocket conectado');
+          setConectado(true);
+        };
+        
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('📨 Nuevo turno recibido:', data);
+            
+            // Verificar si es un turno nuevo
+            if (!ultimoTurnoRef.current || data.turno > ultimoTurnoRef.current.turno) {
+              setUltimoTurno(data);
+              ultimoTurnoRef.current = data;
+              
+              // Reproducir sonido si está activo
+              if (sonidoActivo) {
+                reproducirSonido();
+              }
+            }
+          } catch (error) {
+            console.error('Error parseando mensaje:', error);
           }
-        }
+        };
+        
+        ws.onerror = (error) => {
+          console.error('❌ Error WebSocket:', error);
+          setConectado(false);
+        };
+        
+        ws.onclose = () => {
+          console.log('🔌 WebSocket desconectado');
+          setConectado(false);
+          
+          // Intentar reconectar después de 3 segundos
+          reconectarTimeout = setTimeout(() => {
+            console.log('🔄 Intentando reconectar...');
+            conectarWebSocket();
+          }, 3000);
+        };
+        
       } catch (error) {
-        console.error('Error parseando mensaje:', error);
+        console.error('Error creando WebSocket:', error);
+        setConectado(false);
       }
     };
     
-    return () => ws.close();
-  }, [sonidoActivo]);
+    conectarWebSocket();
+    
+    return () => {
+      if (ws) {
+        ws.close();
+      }
+      if (reconectarTimeout) {
+        clearTimeout(reconectarTimeout);
+      }
+    };
+  }, [sonidoActivo, wsUrl]);
 
-  // Polling de respaldo cada 5 segundos
+  // Polling de respaldo cada 10 segundos
   useEffect(() => {
     const cargarUltimoTurno = async () => {
       try {
-        const response = await fetch(`${API_URL}/ultimo-turno`);
+        console.log(`🔄 Polling a: ${apiUrl}/ultimo-turno`);
+        const response = await fetch(`${apiUrl}/ultimo-turno`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const data = await response.json();
         if (data.ultimoTurno) {
           // Verificar si es un turno nuevo
           if (!ultimoTurnoRef.current || data.ultimoTurno.turno > ultimoTurnoRef.current.turno) {
+            console.log('📨 Turno recibido via polling:', data.ultimoTurno);
             setUltimoTurno(data.ultimoTurno);
             ultimoTurnoRef.current = data.ultimoTurno;
             
@@ -55,14 +110,14 @@ const Cliente = () => {
           }
         }
       } catch (error) {
-        console.error('Error cargando último turno:', error);
+        console.error('Error en polling:', error);
       }
     };
     
     cargarUltimoTurno();
-    const interval = setInterval(cargarUltimoTurno, 5000);
+    const interval = setInterval(cargarUltimoTurno, 10000);
     return () => clearInterval(interval);
-  }, [sonidoActivo]);
+  }, [sonidoActivo, apiUrl]);
 
   // Actualizar hora cada segundo
   useEffect(() => {
@@ -76,21 +131,22 @@ const Cliente = () => {
   const reproducirSonido = () => {
     if (audioRef.current) {
       try {
-        // Reiniciar el sonido si ya está reproduciéndose
         audioRef.current.currentTime = 0;
         
-        // Intentar reproducir
         audioRef.current.play().then(() => {
-          console.log('🔊 Sonido reproducido correctamente');
+          console.log('🔊 Sonido reproducido');
         }).catch(error => {
           console.log('Audio autoplay bloqueado:', error);
-          // Si falla el autoplay, mostrar botón para activar sonido
+          // Mostrar notificación para activar sonido
+          if (!error.message.includes('user gesture')) {
+            alert('Haz click en la pantalla para activar el sonido');
+          }
         });
       } catch (error) {
         console.error('Error reproduciendo sonido:', error);
       }
     } else {
-      console.warn('Audio ref no está disponible');
+      console.warn('Audio ref no disponible');
     }
   };
 
@@ -101,20 +157,22 @@ const Cliente = () => {
 
   return (
     <div style={styles.container}>
-      {/* Elemento de audio - CAMBIA EL NOMBRE DEL ARCHIVO AQUÍ */}
+      {/* Elemento de audio */}
       <audio 
         ref={audioRef} 
         preload="auto"
         style={{ display: 'none' }}
       >
-        {/* ⬇️ CAMBIA "mi-sonido.mp3" POR EL NOMBRE DE TU ARCHIVO ⬇️ */}
         <source src="/assets/llamador.mp3" type="audio/mpeg" />
-        {/* ⬆️ CAMBIA "mi-sonido.mp3" POR EL NOMBRE DE TU ARCHIVO ⬆️ */}
-        
-        {/* Fallback para otros formatos si tienes */}
-        {/* <source src="/assets/mi-sonido.ogg" type="audio/ogg" /> */}
-        {/* <source src="/assets/mi-sonido.wav" type="audio/wav" /> */}
       </audio>
+      
+      {/* Indicador de conexión */}
+      <div style={{
+        ...styles.conexionIndicador,
+        backgroundColor: conectado ? '#4CAF50' : '#FF9800'
+      }}>
+        {conectado ? '🟢 CONECTADO' : '🟡 CONECTANDO...'}
+      </div>
       
       {/* Botón para activar/desactivar sonido */}
       <button 
@@ -124,6 +182,15 @@ const Cliente = () => {
       >
         {sonidoActivo ? '🔊' : '🔇'}
       </button>
+
+      {/* Info de conexión (solo desarrollo) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div style={styles.debugInfo}>
+          <div>API: {apiUrl}</div>
+          <div>WebSocket: {wsUrl}</div>
+          <div>Conectado: {conectado ? 'Sí' : 'No'}</div>
+        </div>
+      )}
 
       <div style={styles.header}>
         <div style={styles.fechaHora}>
@@ -159,6 +226,18 @@ const Cliente = () => {
               <div style={styles.cajaNumero}>{ultimoTurno.caja}</div>
             </div>
             
+            {/* Información adicional del turno */}
+            <div style={styles.infoTurno}>
+              <div>TURNO</div>
+              <div style={styles.turnoNumero}>#{ultimoTurno.turno}</div>
+              <div style={styles.horaTurno}>
+                {new Date(ultimoTurno.hora).toLocaleTimeString('es-ES', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </div>
+            </div>
+            
             {/* Indicador de sonido */}
             {sonidoActivo && (
               <div style={styles.indicadorSonido}>
@@ -173,6 +252,9 @@ const Cliente = () => {
             <div style={styles.subtextoEspera}>
               {sonidoActivo ? '🔊 Sonido activado' : '🔇 Sonido silenciado'}
             </div>
+            <div style={styles.estadoConexion}>
+              {conectado ? 'Conectado al sistema' : 'Conectando...'}
+            </div>
           </div>
         )}
       </div>
@@ -183,6 +265,13 @@ const Cliente = () => {
           <span style={styles.estadoLabel}>Estado sonido:</span>
           <span style={sonidoActivo ? styles.estadoActivo : styles.estadoInactivo}>
             {sonidoActivo ? 'ACTIVO' : 'SILENCIADO'}
+          </span>
+        </div>
+        
+        <div style={styles.estadoItem}>
+          <span style={styles.estadoLabel}>Conexión:</span>
+          <span style={conectado ? styles.estadoActivo : styles.estadoInactivo}>
+            {conectado ? 'ONLINE' : 'OFFLINE'}
           </span>
         </div>
         
@@ -209,6 +298,18 @@ const styles = {
     position: 'relative'
   },
   
+  // Indicador de conexión
+  conexionIndicador: {
+    position: 'absolute',
+    top: '20px',
+    left: '20px',
+    padding: '8px 15px',
+    borderRadius: '20px',
+    fontSize: '14px',
+    fontWeight: 'bold',
+    zIndex: 100
+  },
+  
   // Botón de sonido
   botonSonido: {
     position: 'absolute',
@@ -227,6 +328,20 @@ const styles = {
     justifyContent: 'center',
     transition: 'all 0.3s',
     zIndex: 100
+  },
+  
+  // Info de debug (solo desarrollo)
+  debugInfo: {
+    position: 'absolute',
+    top: '80px',
+    left: '20px',
+    background: 'rgba(0, 0, 0, 0.5)',
+    padding: '10px',
+    borderRadius: '5px',
+    fontSize: '12px',
+    fontFamily: 'monospace',
+    maxWidth: '300px',
+    display: process.env.NODE_ENV === 'development' ? 'block' : 'none'
   },
   
   header: {
@@ -259,59 +374,85 @@ const styles = {
   
   anuncio: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: '20px',
-    padding: '40px',
+    borderRadius: '30px',
+    padding: '50px',
     textAlign: 'center',
-    minHeight: '400px',
+    minHeight: '500px',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
-    transition: 'all 0.3s',
-    border: '3px solid rgba(255, 255, 255, 0.2)'
+    transition: 'all 0.5s ease',
+    border: '5px solid rgba(255, 255, 255, 0.2)',
+    margin: '0 auto',
+    maxWidth: '800px'
   },
   
   anuncioConTurno: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     borderColor: '#ffffff',
-    boxShadow: '0 0 30px rgba(255, 255, 255, 0.3)',
+    boxShadow: '0 0 50px rgba(255, 255, 255, 0.5)',
     animation: 'pulse 2s infinite'
   },
   
   mensaje: {
     fontSize: '48px',
     color: '#ffffff',
-    marginBottom: '40px',
-    textShadow: '2px 2px 4px rgba(0, 0, 0, 0.3)',
-    fontWeight: 'bold'
+    marginBottom: '30px',
+    textShadow: '3px 3px 6px rgba(0, 0, 0, 0.4)',
+    fontWeight: '900',
+    letterSpacing: '2px'
   },
   
   cajaDisplay: {
-    marginBottom: '40px'
+    margin: '40px 0'
   },
   
   cajaLabel: {
-    fontSize: '28px',
+    fontSize: '32px',
     color: '#ffebee',
-    marginBottom: '10px',
-    textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)'
+    marginBottom: '15px',
+    textShadow: '2px 2px 4px rgba(0, 0, 0, 0.3)',
+    letterSpacing: '2px'
   },
   
   cajaNumero: {
-    fontSize: '140px',
+    fontSize: '160px',
+    fontWeight: '900',
+    color: '#ffffff',
+    textShadow: '5px 5px 10px rgba(0, 0, 0, 0.5)',
+    lineHeight: 1,
+    margin: '20px 0'
+  },
+  
+  infoTurno: {
+    background: 'rgba(255, 255, 255, 0.2)',
+    padding: '25px 50px',
+    borderRadius: '20px',
+    marginTop: '30px',
+    border: '3px solid rgba(255, 255, 255, 0.4)'
+  },
+  
+  turnoNumero: {
+    fontSize: '60px',
     fontWeight: 'bold',
-    color: '#f2f7f1ff',
-    textShadow: '3px 3px 6px rgba(0, 0, 0, 0.4)',
-    lineHeight: 1
+    color: '#ffffff',
+    margin: '10px 0'
+  },
+  
+  horaTurno: {
+    fontSize: '24px',
+    color: '#ffebee',
+    marginTop: '10px'
   },
   
   indicadorSonido: {
-    marginTop: '20px',
-    padding: '10px 20px',
-    backgroundColor: 'rgba(76, 175, 80, 0.8)',
+    marginTop: '30px',
+    padding: '12px 25px',
+    backgroundColor: 'rgba(76, 175, 80, 0.9)',
     color: 'white',
-    borderRadius: '25px',
-    fontSize: '16px',
+    borderRadius: '30px',
+    fontSize: '18px',
     fontWeight: 'bold',
     animation: 'fadeInOut 2s infinite'
   },
@@ -321,71 +462,90 @@ const styles = {
   },
   
   iconoEspera: {
-    fontSize: '80px',
-    marginBottom: '20px',
+    fontSize: '100px',
+    marginBottom: '30px',
     opacity: 0.8,
     animation: 'spin 4s linear infinite'
   },
   
   textoEspera: {
-    fontSize: '36px',
+    fontSize: '42px',
     color: '#ffffff',
-    marginBottom: '10px',
-    textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)'
+    marginBottom: '15px',
+    textShadow: '2px 2px 4px rgba(0, 0, 0, 0.3)',
+    letterSpacing: '2px'
   },
   
   subtextoEspera: {
-    fontSize: '18px',
+    fontSize: '20px',
     color: '#ffebee',
-    opacity: 0.9
+    opacity: 0.9,
+    marginBottom: '10px'
+  },
+  
+  estadoConexion: {
+    fontSize: '16px',
+    color: '#e7ece6ff',
+    marginTop: '20px',
+    padding: '10px 20px',
+    background: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: '15px'
   },
   
   estadoContainer: {
-    marginTop: '30px',
-    padding: '20px',
+    marginTop: '40px',
+    padding: '25px',
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: '15px',
+    borderRadius: '20px',
     display: 'flex',
     justifyContent: 'center',
-    gap: '40px',
-    flexWrap: 'wrap'
+    gap: '50px',
+    flexWrap: 'wrap',
+    maxWidth: '800px',
+    margin: '40px auto'
   },
   
   estadoItem: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '5px'
+    gap: '8px',
+    minWidth: '150px'
   },
   
   estadoLabel: {
     fontSize: '14px',
     color: '#ffebee',
-    opacity: 0.8
+    opacity: 0.8,
+    textTransform: 'uppercase',
+    letterSpacing: '1px'
   },
   
   estadoActivo: {
-    fontSize: '16px',
+    fontSize: '18px',
     fontWeight: 'bold',
     color: '#4CAF50',
     backgroundColor: 'rgba(76, 175, 80, 0.2)',
-    padding: '5px 15px',
-    borderRadius: '15px'
+    padding: '8px 20px',
+    borderRadius: '20px',
+    textShadow: '0 1px 2px rgba(0,0,0,0.2)'
   },
   
   estadoInactivo: {
-    fontSize: '16px',
+    fontSize: '18px',
     fontWeight: 'bold',
     color: '#f44336',
     backgroundColor: 'rgba(244, 67, 54, 0.2)',
-    padding: '5px 15px',
-    borderRadius: '15px'
+    padding: '8px 20px',
+    borderRadius: '20px',
+    textShadow: '0 1px 2px rgba(0,0,0,0.2)'
   },
   
   estadoValor: {
-    fontSize: '18px',
+    fontSize: '20px',
     fontWeight: 'bold',
-    color: '#ffffff'
+    color: '#ffffff',
+    textAlign: 'center'
   }
 };
 
@@ -393,9 +553,18 @@ const styles = {
 const styleSheet = document.createElement('style');
 styleSheet.textContent = `
   @keyframes pulse {
-    0% { box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); }
-    50% { box-shadow: 0 0 40px rgba(255, 255, 255, 0.6); }
-    100% { box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); }
+    0% { 
+      box-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+      transform: scale(1);
+    }
+    50% { 
+      box-shadow: 0 0 60px rgba(255, 255, 255, 0.6);
+      transform: scale(1.01);
+    }
+    100% { 
+      box-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+      transform: scale(1);
+    }
   }
   
   @keyframes spin {
@@ -404,8 +573,8 @@ styleSheet.textContent = `
   }
   
   @keyframes fadeInOut {
-    0%, 100% { opacity: 0.8; }
-    50% { opacity: 1; }
+    0%, 100% { opacity: 0.7; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.05); }
   }
 `;
 document.head.appendChild(styleSheet);
