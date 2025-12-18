@@ -164,39 +164,6 @@ const ClienteFuncional = ({
   // 4. Render SIMPLE pero FUNCIONAL
   return (
     <div style={styles.container}>
-      {/* Panel de control */}
-      <div style={styles.controlPanel}>
-        <div style={{
-          ...styles.status,
-          background: conectado ? '#4CAF50' : '#f44336'
-        }}>
-          {conectado ? '✅ CONECTADO' : '❌ DESCONECTADO'}
-        </div>
-        
-        <div style={styles.debugPanel}>
-          <div>{debug}</div>
-          <div>Mensajes: {contadorRef.current}</div>
-          <div>Último: {ultimoTurno ? `Caja ${ultimoTurno.caja} - Turno ${ultimoTurno.turno}` : 'Ninguno'}</div>
-        </div>
-        
-        <button 
-          onClick={() => {
-            const testTurno = {
-              caja: Math.floor(Math.random() * 12) + 1,
-              turno: (ultimoTurnoRef.current?.turno || 0) + 1,
-              hora: new Date().toISOString(),
-              id: Date.now()
-            };
-            console.log('🧪 Test manual:', testTurno);
-            setUltimoTurno(testTurno);
-            ultimoTurnoRef.current = testTurno;
-            setDebug(`TEST: Caja ${testTurno.caja} - Turno ${testTurno.turno}`);
-          }}
-          style={styles.testButton}
-        >
-          🧪 TEST MANUAL
-        </button>
-      </div>
 
       {/* Display principal */}
       <div style={{
@@ -212,12 +179,7 @@ const ClienteFuncional = ({
               <div style={styles.cajaNumero}>{ultimoTurno.caja}</div>
             </div>
             
-            <div style={styles.infoContainer}>
-              <div style={styles.turnoInfo}>
-                <div>TURNO</div>
-                <div style={styles.turnoNumero}>#{ultimoTurno.turno}</div>
-              </div>
-              
+            <div style={styles.infoContainer}> 
               <div style={styles.horaInfo}>
                 <div>HORA</div>
                 <div style={styles.horaTexto}>
