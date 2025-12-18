@@ -105,19 +105,6 @@ const Cajero = () => {
           >
             {llamando ? '🔔 LLAMANDO...' : `📢 LLAMAR TURNO ${(cajaActual?.ultimoTurno || 0) + 1}`}
           </button>
-
-          <div style={styles.infoPanel}>
-            <div style={styles.infoItem}>
-              <span style={styles.infoLabel}>Último Turno</span>
-              <span style={styles.infoValor}>{cajaActual?.ultimoTurno || 0}</span>
-            </div>
-            <div style={styles.infoItem}>
-              <span style={styles.infoLabel}>Estado</span>
-              <span style={cajaActual?.activa ? styles.estadoOk : styles.estadoError}>
-                {cajaActual?.activa ? 'CONECTADO' : 'INACTIVO'}
-              </span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
