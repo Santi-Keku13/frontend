@@ -65,12 +65,6 @@ const Cajero = () => {
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>🏪 PANEL DEL CAJERO</h1>
-      
-      {error && (
-        <div style={{...styles.mensaje, backgroundColor: error.includes('✅') ? '#4CAF50' : '#f44336'}}>
-          {error}
-        </div>
-      )}
 
       <div style={styles.content}>
         <div style={styles.section}>

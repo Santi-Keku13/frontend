@@ -54,11 +54,10 @@ function App() {
           Modo: <strong>{modo.toUpperCase()}</strong>
         </p>
         <p>
-          API: <code>{API_URL}</code> | 
-          WebSocket: <code>{WS_URL}</code>
+          Derechos Reservados 2025
         </p>
         <p className="hint">
-          💡 El cliente se actualizará en tiempo real cuando llames un turno desde el cajero
+          Front-end Vera Santiago
         </p>
       </div>
     </div>
