@@ -54,10 +54,10 @@ function App() {
           Modo: <strong>{modo.toUpperCase()}</strong>
         </p>
         <p>
-          Derechos Reservados 2025
+          Desarrollado por
         </p>
         <p className="hint">
-          Front-end Vera Santiago
+          FullStack Vera Santiago
         </p>
       </div>
     </div>

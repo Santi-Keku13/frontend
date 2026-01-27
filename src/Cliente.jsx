@@ -5,337 +5,203 @@ const ClienteFuncional = ({
   wsUrl = 'wss://servidor-2db2.onrender.com'
 }) => {
   const [ultimoTurno, setUltimoTurno] = useState(null);
-  const [conectado, setConectado] = useState(false);
-  const [debug, setDebug] = useState('Esperando conexión...');
   const ultimoTurnoRef = useRef(null);
   const wsRef = useRef(null);
-  const contadorRef = useRef(0);
 
-  console.log('🚀 Cliente Funcional iniciado');
-
-  // 1. WebSocket SIMPLE pero ROBUSTO
   useEffect(() => {
-    console.log(`🔌 Conectando WebSocket a: ${wsUrl}`);
-    setDebug('Conectando WebSocket...');
-    
     const connect = () => {
       wsRef.current = new WebSocket(wsUrl);
-      
-      wsRef.current.onopen = () => {
-        console.log('✅ WebSocket CONECTADO');
-        setConectado(true);
-        setDebug('WebSocket: Conectado ✅');
-      };
-      
       wsRef.current.onmessage = (event) => {
-        contadorRef.current++;
-        console.log(`📨 [${contadorRef.current}] Mensaje recibido:`, event.data);
-        
         try {
           const data = JSON.parse(event.data);
-          console.log(`📊 [${contadorRef.current}] JSON parseado:`, data);
-          
-          // ¡IMPORTANTE! ACEPTAR AMBOS FORMATOS
           if (data.type === 'llamada' || (data.caja && data.turno)) {
-            console.log(`🎯 [${contadorRef.current}] ¡ES UN TURNO!`);
-            
             const nuevoTurno = {
               caja: data.caja,
-              nombre: data.nombre || `Caja ${data.caja}`,
               turno: data.turno,
               hora: data.hora || new Date().toISOString(),
-              id: data.id || Date.now()
+              id: Date.now()
             };
-            
-            console.log(`🔄 [${contadorRef.current}] Actualizando estado con:`, nuevoTurno);
-            
-            // USAR useState CORRECTAMENTE
             setUltimoTurno(nuevoTurno);
-            
-            // También actualizar la ref
             ultimoTurnoRef.current = nuevoTurno;
-            
-            // Debug visual
-            setDebug(`Caja ${nuevoTurno.caja} - Turno ${nuevoTurno.turno} ✅`);
-            
-            // Reproducir sonido
             reproducirSonido();
-            
-          } else if (data.type === 'init' && data.data) {
-            console.log('📋 Datos iniciales recibidos');
-            const nuevoTurno = {
-              caja: data.data.caja,
-              nombre: data.data.nombre || `Caja ${data.data.caja}`,
-              turno: data.data.turno,
-              hora: data.data.hora,
-              id: data.data.id || Date.now()
-            };
-            setUltimoTurno(nuevoTurno);
-            ultimoTurnoRef.current = nuevoTurno;
-          } else if (data.type === 'heartbeat') {
-            console.log('❤️ Heartbeat recibido');
           }
-          
-        } catch (error) {
-          console.error(`❌ [${contadorRef.current}] Error parseando JSON:`, error);
-        }
+        } catch (e) { console.error("Error socket", e); }
       };
-      
-      wsRef.current.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
-        setDebug('WebSocket: Error ❌');
-      };
-      
-      wsRef.current.onclose = (event) => {
-        console.log('🔌 WebSocket cerrado:', event.code, event.reason);
-        setConectado(false);
-        setDebug('WebSocket: Desconectado 🔌');
-        
-        // Reconectar después de 3 segundos
-        setTimeout(() => {
-          console.log('🔄 Reconectando...');
-          connect();
-        }, 3000);
-      };
+      wsRef.current.onclose = () => setTimeout(connect, 3000);
     };
-    
     connect();
-    
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-    };
+    return () => wsRef.current?.close();
   }, [wsUrl]);
 
-  // 2. Polling AGGRESIVO como respaldo
-  useEffect(() => {
-    const poll = async () => {
-      try {
-        console.log('🔄 Polling activo...');
-        const response = await fetch(`${apiUrl}/ultimo-turno?t=${Date.now()}`);
-        const data = await response.json();
-        
-        if (data.ultimoTurno) {
-          const turno = data.ultimoTurno;
-          const nuevoTurno = {
-            caja: turno.caja,
-            nombre: turno.nombre || `Caja ${turno.caja}`,
-            turno: turno.turno,
-            hora: turno.hora,
-            id: Date.now()
-          };
-          
-          const actual = ultimoTurnoRef.current;
-          
-          if (!actual || nuevoTurno.turno > actual.turno || 
-              (nuevoTurno.turno === actual.turno && nuevoTurno.caja !== actual.caja)) {
-            
-            console.log('📡 Polling detectó nuevo turno:', nuevoTurno);
-            setUltimoTurno(nuevoTurno);
-            ultimoTurnoRef.current = nuevoTurno;
-            setDebug(`Polling: Caja ${nuevoTurno.caja} - Turno ${nuevoTurno.turno}`);
-          }
-        }
-      } catch (error) {
-        console.error('Polling error:', error);
-      }
-    };
-    
-    // Polling cada 2 segundos
-    poll();
-    const interval = setInterval(poll, 2000);
-    return () => clearInterval(interval);
-  }, [apiUrl]);
-
-  // 3. Función de sonido
   const reproducirSonido = () => {
-    try {
-      const audio = new Audio('/assets/llamador.mp3');
-      audio.volume = 0.7;
-      audio.play().catch(() => {
-        console.log('Sonido necesita interacción del usuario');
-      });
-    } catch (error) {
-      console.error('Error sonido:', error);
-    }
+    const audio = new Audio('/assets/llamador.mp3');
+    audio.play().catch(e => console.log("Audio en espera"));
   };
 
-  // 4. Render SIMPLE pero FUNCIONAL
   return (
-    <div style={styles.container}>
+    <div style={styles.viewPort}>
+      <div style={styles.container}>
+        {/* CABECERA */}
+        <header style={styles.header}>
+          <h1 style={styles.tituloPrincipal}>BLOW MAX</h1>
+          <p style={styles.eslogan}>El mayorista del centro</p>
+        </header>
 
-      {/* Display principal */}
-      <div style={{
-        ...styles.display,
-        ...(ultimoTurno && styles.displayActivo)
-      }}>
-        {ultimoTurno ? (
-          <>
-            <div style={styles.mensaje}>DIRÍJASE A LA</div>
-            
-            <div style={styles.cajaContainer}>
-              <div style={styles.cajaLabel}>CAJA</div>
-              <div style={styles.cajaNumero}>{ultimoTurno.caja}</div>
-            </div>
-            
-            <div style={styles.infoContainer}> 
-              <div style={styles.horaInfo}>
-                <div>HORA</div>
-                <div style={styles.horaTexto}>
-                  {new Date(ultimoTurno.hora).toLocaleTimeString('es-ES')}
-                </div>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div style={styles.esperando}>
-            <div style={styles.iconoEspera}>⏳</div>
-            <div style={styles.textoEspera}>SISTEMA ACTIVO</div>
-            <div style={styles.subtextoEspera}>Esperando llamada...</div>
+        {/* CUERPO CENTRAL */}
+        <div style={styles.mainContent}>
+          {/* LADO IZQUIERDO: VIDEO */}
+          <div style={styles.videoSection}>
+            <video 
+              src="/assets/propaganda.mp4" 
+              style={styles.videoPlayer}
+              autoPlay 
+              muted // ESENCIAL para que el navegador permita el auto-play
+              loop 
+              playsInline
+            />
           </div>
-        )}
+
+          {/* LADO DERECHO: PANEL DE TURNO */}
+          <div style={styles.turnoSection}>
+            <div style={{
+              ...styles.display,
+              ...(ultimoTurno && styles.displayActivo)
+            }}>
+              {ultimoTurno ? (
+                <div style={styles.contentWrapper}>
+                  <div style={styles.mensaje}>PASE A</div>
+                  <div style={styles.cajaLabel}>CAJA</div>
+                  <div style={styles.cajaNumero}>{ultimoTurno.caja}</div>
+                  <div style={styles.turnoFooter}>
+                    TURNO: {ultimoTurno.turno}
+                  </div>
+                </div>
+              ) : (
+                <div style={styles.esperando}>
+                  <div style={styles.textoEspera}>BIENVENIDOS</div>
+                  <div style={styles.subtextoEspera}>aguarde su turno...</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
 const styles = {
+  // Contenedor que limita el alto total considerando el footer y el header de la App
+  viewPort: {
+    height: 'calc(100vh - 140px)', // Ajusta este valor (140px) según el alto real de tu footer/header externo
+    width: '100%',
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+  },
   container: {
-    minHeight: '100vh',
-    background: 'linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%)',
-    color: 'white',
-    fontFamily: 'Arial, sans-serif',
-    padding: '20px'
-  },
-  controlPanel: {
-    position: 'fixed',
-    top: '20px',
-    left: '20px',
-    right: '20px',
+    height: '100%',
     display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    background: 'rgba(0,0,0,0.7)',
-    padding: '15px',
-    borderRadius: '10px',
-    zIndex: 1000
+    flexDirection: 'column',
+    padding: '0 20px 10px 20px',
+    boxSizing: 'border-box',
   },
-  status: {
-    padding: '10px 20px',
-    borderRadius: '20px',
-    fontWeight: 'bold',
-    fontSize: '14px'
+  header: {
+    textAlign: 'center',
+    padding: '10px 0',
+    flex: '0 0 auto', // No permite que el header crezca o se achique
   },
-  debugPanel: {
-    flex: 1,
-    margin: '0 20px',
-    padding: '10px',
-    background: 'rgba(255,255,255,0.1)',
-    borderRadius: '5px',
-    fontSize: '12px',
-    fontFamily: 'monospace'
+  tituloPrincipal: {
+    fontSize: 'clamp(40px, 8vh, 80px)', 
+    color: '#FF0000',
+    fontWeight: '900',
+    margin: 0,
+    lineHeight: '1.1',
+    textTransform: 'uppercase'
   },
-  testButton: {
-    background: '#4CAF50',
-    color: 'white',
-    border: 'none',
-    padding: '10px 20px',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    fontWeight: 'bold'
+  eslogan: {
+    fontSize: 'clamp(18px, 3vh, 28px)',
+    color: '#cc0000',
+    margin: '0',
+    fontWeight: '400',
+    fontStyle: 'italic'
+  },
+  mainContent: {
+    display: 'flex',
+    flex: '1 1 auto', // Ocupa exactamente el espacio sobrante
+    gap: '20px',
+    minHeight: 0, // CRÍTICO para que el contenido no desborde en Flexbox
+    paddingBottom: '5px'
+  },
+  videoSection: {
+    flex: '1.4',
+    backgroundColor: '#000',
+    borderRadius: '25px',
+    overflow: 'hidden',
+    border: '4px solid #f0f0f0',
+  },
+  videoPlayer: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover' // Asegura que el video llene el contenedor
+  },
+  turnoSection: {
+    flex: '1',
+    display: 'flex',
+    minHeight: 0
   },
   display: {
-    marginTop: '100px',
-    padding: '40px',
-    background: 'rgba(255,255,255,0.15)',
-    borderRadius: '20px',
-    textAlign: 'center',
-    minHeight: '500px',
+    flex: '1',
+    backgroundColor: '#fff',
+    borderRadius: '25px',
+    border: 'min(1.5vw, 12px) solid #FF0000',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
-    border: '3px solid rgba(255,255,255,0.2)'
+    color: '#FF0000',
+    padding: '10px',
+    boxSizing: 'border-box',
+    overflow: 'hidden'
   },
-  displayActivo: {
-    background: 'rgba(255,255,255,0.25)',
-    borderColor: '#4CAF50',
-    animation: 'pulse 1s infinite'
-  },
-  mensaje: {
-    fontSize: '32px',
-    marginBottom: '40px',
-    fontWeight: 'bold',
-    textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
-  },
-  cajaContainer: {
-    margin: '40px 0'
-  },
-  cajaLabel: {
-    fontSize: '24px',
-    marginBottom: '10px',
-    color: '#ffcc80'
-  },
-  cajaNumero: {
-    fontSize: '160px',
-    fontWeight: 'bold',
-    textShadow: '0 0 20px rgba(255,255,255,0.7)'
-  },
-  infoContainer: {
+  contentWrapper: {
     display: 'flex',
-    justifyContent: 'space-around',
-    width: '100%',
-    marginTop: '40px',
-    padding: '20px',
-    background: 'rgba(255,255,255,0.1)',
-    borderRadius: '15px'
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'space-evenly', // Distribuye los textos proporcionalmente
+    height: '100%',
+    width: '100%'
   },
-  turnoInfo: {
-    textAlign: 'center'
+  mensaje: { fontSize: 'clamp(20px, 4vh, 45px)', fontWeight: 'bold' },
+  cajaLabel: { fontSize: 'clamp(25px, 5vh, 55px)', margin: 0 },
+  cajaNumero: { 
+    fontSize: 'clamp(80px, 25vh, 250px)', 
+    fontWeight: '900',
+    lineHeight: '0.8'
   },
-  turnoNumero: {
-    fontSize: '48px',
+  turnoFooter: {
+    fontSize: 'clamp(20px, 5vh, 50px)',
     fontWeight: 'bold',
-    marginTop: '10px'
+    backgroundColor: '#FF0000',
+    color: '#fff',
+    padding: '5px 30px',
+    borderRadius: '15px',
+    textAlign: 'center',
+    width: '85%'
   },
-  horaInfo: {
-    textAlign: 'center'
-  },
-  horaTexto: {
-    fontSize: '24px',
-    fontWeight: 'bold',
-    marginTop: '10px'
-  },
-  esperando: {
-    textAlign: 'center'
-  },
-  iconoEspera: {
-    fontSize: '100px',
-    marginBottom: '30px',
-    animation: 'spin 4s linear infinite'
-  },
-  textoEspera: {
-    fontSize: '36px',
-    fontWeight: 'bold',
-    marginBottom: '10px'
-  },
-  subtextoEspera: {
-    fontSize: '20px',
-    opacity: 0.8
+  esperando: { textAlign: 'center' },
+  textoEspera: { fontSize: 'clamp(30px, 6vh, 60px)', fontWeight: 'bold' },
+  subtextoEspera: { fontSize: '2vh', opacity: 0.5 },
+  displayActivo: {
+    animation: 'pulseBg 1.5s infinite'
   }
 };
 
-// Agregar animaciones
 const styleSheet = document.createElement('style');
 styleSheet.textContent = `
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.8; }
-  }
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+  @keyframes pulseBg {
+    0% { background-color: #ffffff; }
+    50% { background-color: #fff0f0; }
+    100% { background-color: #ffffff; }
   }
 `;
 document.head.appendChild(styleSheet);

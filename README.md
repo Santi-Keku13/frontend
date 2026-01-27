@@ -1,16 +1,22 @@
-# React + Vite
+🏪 Sistema de Gestión de Turnos - Panel del Cajero
+Esta es la interfaz del Panel del Cajero desarrollada en React. Permite a los operadores seleccionar su terminal (caja), visualizar el estado de la misma y realizar la llamada del siguiente turno de manera eficiente.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+🚀 Características
+Selector de Caja: Menú desplegable dinámico para elegir la terminal de trabajo.
 
-Currently, two official plugins are available:
+Llamada de Turnos: Botón de acción rápida para llamar al siguiente cliente.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Estado en Tiempo Real: Visualización del último turno llamado y el estado de conexión de la caja.
 
-## React Compiler
+Interfaz Adaptable: Diseño limpio, profesional y preparado para pantallas táctiles.
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+Modo de Desarrollo: Incluye datos de respaldo (fallback) en caso de que la API no esté disponible.
 
-## Expanding the ESLint configuration
+🛠️ Tecnologías Utilizadas
+React.js (Hooks: useState, useEffect)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Vite (Herramienta de construcción)
+
+Fetch API (Comunicación con el servidor)
+
+CSS-in-JS (Estilos dinámicos y encapsulados)
