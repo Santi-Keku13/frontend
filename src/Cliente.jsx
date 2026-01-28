@@ -20,7 +20,6 @@ const ClienteFuncional = () => {
           let numeroCaja = null;
           let numeroTurno = null;
 
-          // Mantenemos la lógica de detección que te funcionó
           if (data.type === 'llamada' || data.type === 'init' || data.turno) {
             if (typeof data.turno === 'object') {
               numeroCaja = data.turno.caja;
@@ -53,105 +52,93 @@ const ClienteFuncional = () => {
   };
 
   return (
-    <div style={styles.viewPort}>
-      <div style={styles.container}>
-        {/* Cabecera Adaptable */}
-        <header style={styles.header}>
-          <h1 style={styles.tituloPrincipal}>BLOW MAX</h1>
-          <p style={styles.eslogan}>El mayorista del centro</p>
-        </header>
+    <div style={styles.pageWrapper}>
+      {/* Cabecera */}
+      <header style={styles.header}>
+        <h1 style={styles.tituloPrincipal}>BLOW MAX</h1>
+        <p style={styles.eslogan}>El mayorista del centro</p>
+      </header>
 
-        {/* Cuerpo Principal Responsivo */}
-        <main style={styles.mainContent}>
-          {/* Sección de Video */}
-          <div style={styles.videoSection}>
-            <video 
-              key="video-display"
-              src="/assets/propaganda.mp4" 
-              style={styles.videoPlayer}
-              autoPlay muted loop playsInline
-            />
-          </div>
+      {/* Contenido Principal: El flex: 1 lo estira hasta el Footer de App.js */}
+      <div style={styles.mainContent}>
+        <div style={styles.videoSection}>
+          <video 
+            key="video-display"
+            src="/assets/propaganda.mp4" 
+            style={styles.videoPlayer}
+            autoPlay muted loop playsInline
+          />
+        </div>
 
-          {/* Sección de Turno Llamado */}
-          <div style={styles.turnoSection}>
-            <div style={{
-              ...styles.display,
-              ...(ultimoTurno ? styles.displayActivo : {})
-            }}>
-              {ultimoTurno ? (
-                <div style={styles.contentWrapper}>
-                  <div style={styles.mensaje}>PASE A</div>
-                  <div style={styles.cajaLabel}>CAJA</div>
-                  <div style={styles.cajaNumero}>{ultimoTurno.caja}</div>
-                  <div style={styles.turnoFooter}>
-                    TURNO: {ultimoTurno.turno}
-                  </div>
+        <div style={styles.turnoSection}>
+          <div style={{
+            ...styles.display,
+            ...(ultimoTurno ? styles.displayActivo : {})
+          }}>
+            {ultimoTurno ? (
+              <div style={styles.contentWrapper}>
+                <div style={styles.mensaje}>PASE A</div>
+                <div style={styles.cajaLabel}>CAJA</div>
+                <div style={styles.cajaNumero}>{ultimoTurno.caja}</div>
+                <div style={styles.turnoFooter}>
+                  TURNO: {ultimoTurno.turno}
                 </div>
-              ) : (
-                <div style={styles.esperando}>
-                  <div style={styles.textoEspera}>BIENVENIDOS</div>
-                  <div style={styles.subtextoEspera}>aguarde su turno...</div>
-                </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div style={styles.esperando}>
+                <div style={styles.textoEspera}>BIENVENIDOS</div>
+                <div style={styles.subtextoEspera}>aguarde su turno...</div>
+              </div>
+            )}
           </div>
-        </main>
+        </div>
       </div>
     </div>
   );
 };
 
 const styles = {
-  viewPort: { 
-    height: '100vh', 
-    width: '100vw', 
-    margin: 0,
-    padding: 0,
-    overflow: 'hidden', 
-    backgroundColor: '#fff',
-    fontFamily: 'Arial, sans-serif'
-  },
-  container: { 
+  // Ocupa el espacio disponible que le deje el App.js
+  pageWrapper: {
+    display: 'flex',
+    flexDirection: 'column',
     height: '100%', 
-    display: 'flex', 
-    flexDirection: 'column', 
-    padding: '1vh 2vw' 
+    width: '100%',
+    boxSizing: 'border-box',
+    padding: '10px 20px 0 20px', // Quitamos padding inferior para no chocar con el footer
   },
   header: { 
     textAlign: 'center', 
-    height: '15vh', // Altura fija para la cabecera
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center'
+    flexShrink: 0, 
+    paddingBottom: '10px'
   },
   tituloPrincipal: { 
-    fontSize: '8vh', 
+    fontSize: 'clamp(35px, 7vh, 80px)', 
     color: '#FF0000', 
     fontWeight: '900', 
     margin: 0,
-    lineHeight: '1'
+    lineHeight: 1
   },
   eslogan: { 
-    fontSize: '3vh', 
+    fontSize: 'clamp(16px, 2.5vh, 25px)', 
     color: '#cc0000', 
     margin: 0,
     fontWeight: 'bold'
   },
   mainContent: { 
     display: 'flex', 
-    flex: 1, // Ocupa todo el resto del alto
-    gap: '2vw', 
-    height: '80vh', // Altura del contenido principal
-    marginBottom: '2vh'
+    flex: 1, // ESTO HACE QUE SE ESTIRE HASTA EL FOOTER
+    gap: '20px', 
+    minHeight: 0, 
+    paddingBottom: '15px', // Espacio antes del footer de App.js
   },
   videoSection: { 
-    flex: 1.6, // El video es más ancho
+    flex: 1.6, 
     backgroundColor: '#000', 
     borderRadius: '25px', 
     overflow: 'hidden',
     border: '4px solid #f0f0f0',
-    height: '100%'
+    height: '100%', 
   },
   videoPlayer: { 
     width: '100%', 
@@ -159,13 +146,13 @@ const styles = {
     objectFit: 'cover' 
   },
   turnoSection: { 
-    flex: 1, // El cuadro de turno ocupa el resto
-    height: '100%'
+    flex: 1, 
+    height: '100%',
   },
   display: { 
     height: '100%',
     borderRadius: '25px', 
-    border: '1.5vh solid #FF0000', 
+    border: 'clamp(8px, 1.2vh, 18px) solid #FF0000', 
     display: 'flex', 
     flexDirection: 'column', 
     alignItems: 'center', 
@@ -173,7 +160,7 @@ const styles = {
     backgroundColor: '#fff', 
     color: '#FF0000',
     boxSizing: 'border-box',
-    padding: '2vh'
+    padding: '15px'
   },
   contentWrapper: { 
     display: 'flex',
@@ -183,29 +170,28 @@ const styles = {
     height: '100%',
     width: '100%'
   },
-  mensaje: { fontSize: '5vh', fontWeight: 'bold' },
-  cajaLabel: { fontSize: '6vh', fontWeight: 'bold' },
+  mensaje: { fontSize: 'clamp(18px, 4vh, 45px)', fontWeight: 'bold' },
+  cajaLabel: { fontSize: 'clamp(25px, 5vh, 55px)', fontWeight: 'bold' },
   cajaNumero: { 
-    fontSize: '28vh', // Número gigante adaptable
+    fontSize: 'clamp(90px, 32vh, 380px)', 
     fontWeight: '900', 
-    lineHeight: '0.8'
+    lineHeight: 0.8
   },
   turnoFooter: { 
-    fontSize: '6vh', 
+    fontSize: 'clamp(18px, 5vh, 55px)', 
     backgroundColor: '#FF0000', 
     color: '#fff', 
-    padding: '1.5vh 4vw', 
-    borderRadius: '20px',
+    padding: '8px 35px', 
+    borderRadius: '18px',
     fontWeight: 'bold',
     width: '90%',
     textAlign: 'center'
   },
   esperando: { textAlign: 'center' },
-  textoEspera: { fontSize: '8vh', fontWeight: 'bold' },
-  subtextoEspera: { fontSize: '3vh', opacity: 0.5 },
+  textoEspera: { fontSize: '7vh', fontWeight: 'bold' },
+  subtextoEspera: { fontSize: '2.5vh', opacity: 0.5 },
   displayActivo: {
-    // Animación de parpadeo suave cuando llega turno
-    boxShadow: '0 0 50px rgba(255, 0, 0, 0.2)'
+    boxShadow: '0 0 30px rgba(255, 0, 0, 0.2)'
   }
 };
 
