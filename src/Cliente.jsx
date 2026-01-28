@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const ClienteFuncional = ({ apiUrl, wsUrl }) => { // Recibimos props de App.js
+const ClienteFuncional = ({ apiUrl, wsUrl }) => {
   const [ultimoTurno, setUltimoTurno] = useState(null);
   const wsRef = useRef(null);
 
   useEffect(() => {
     const connect = () => {
       if (wsRef.current) wsRef.current.close();
-      
-      // Usamos la wsUrl que viene por props de App.js para no romper la conexión
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onmessage = (event) => {
@@ -48,6 +46,8 @@ const ClienteFuncional = ({ apiUrl, wsUrl }) => { // Recibimos props de App.js
     audio.play().catch(() => {});
   };
 
+  const imagenPropaganda = "/assets/propaganda.jpeg";
+
   return (
     <div style={styles.viewPort}>
       <div style={styles.container}>
@@ -57,13 +57,22 @@ const ClienteFuncional = ({ apiUrl, wsUrl }) => { // Recibimos props de App.js
         </header>
 
         <main style={styles.mainContent}>
-          <div style={styles.videoSection}>
-            <video 
-              key="video-display"
-              src="/assets/propaganda.mp4" 
-              style={styles.videoPlayer}
-              autoPlay muted loop playsInline
-            />
+          {/* SECCIÓN DE IMAGEN MEJORADA */}
+          <div style={{
+            ...styles.videoSection,
+            backgroundImage: `url(${imagenPropaganda})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}>
+            {/* Overlay de desenfoque para que no se vean bordes negros */}
+            <div style={styles.blurOverlay}>
+              <img 
+                key="video-display"
+                src={imagenPropaganda} 
+                style={styles.videoPlayer}
+                alt="Propaganda"
+              />
+            </div>
           </div>
 
           <div style={styles.turnoSection}>
@@ -93,7 +102,6 @@ const ClienteFuncional = ({ apiUrl, wsUrl }) => { // Recibimos props de App.js
 
 const styles = {
   viewPort: { 
-    /* El secreto: calc(100vh - 160px) resta el espacio del selector y el footer de App.js */
     height: 'calc(100vh - 160px)', 
     width: '100%', 
     overflow: 'hidden', 
@@ -110,13 +118,13 @@ const styles = {
   },
   header: { 
     textAlign: 'center', 
-    height: '15%', 
+    height: '12%', // Un poco más pequeño para dar aire abajo
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center'
   },
   tituloPrincipal: { 
-    fontSize: '6vh', 
+    fontSize: '7vh', 
     color: '#FF0000', 
     fontWeight: '900', 
     margin: 0,
@@ -125,23 +133,41 @@ const styles = {
   eslogan: { fontSize: '2.5vh', color: '#cc0000', margin: 0 },
   mainContent: { 
     display: 'flex', 
-    height: '85%', // Ocupa el resto del contenedor
+    height: '88%', 
     gap: '20px', 
     paddingBottom: '10px'
   },
   videoSection: { 
-    flex: 1.6, 
+    flex: 1.8, // Un poco más ancha para la imagen
     backgroundColor: '#000', 
-    borderRadius: '20px', 
+    borderRadius: '25px', 
     overflow: 'hidden',
-    height: '100%'
+    height: '100%',
+    position: 'relative',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
   },
-  videoPlayer: { width: '100%', height: '100%', objectFit: 'cover' },
+  blurOverlay: {
+    width: '100%',
+    height: '100%',
+    backdropFilter: 'blur(20px)', // Esto difumina el fondo
+    backgroundColor: 'rgba(0,0,0,0.3)', // Oscurece un poco el fondo
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  videoPlayer: { 
+    maxWidth: '100%', 
+    maxHeight: '100%', 
+    objectFit: 'contain', // <--- AQUÍ: NO corta la imagen
+    display: 'block',
+    zIndex: 2
+  },
   turnoSection: { flex: 1, height: '100%' },
   display: { 
     height: '100%',
-    borderRadius: '20px', 
-    border: '1vh solid #FF0000', 
+    borderRadius: '25px', 
+    backgroundColor: '#fff',
+    border: '1.2vh solid #FF0000', 
     display: 'flex', 
     flexDirection: 'column', 
     alignItems: 'center', 
@@ -153,17 +179,13 @@ const styles = {
     display: 'flex', flexDirection: 'column', alignItems: 'center', 
     justifyContent: 'space-between', height: '100%', width: '100%' 
   },
-  mensaje: { fontSize: '4vh', fontWeight: 'bold', color: '#FF0000' },
-  cajaLabel: { fontSize: '5vh', fontWeight: 'bold', color: '#FF0000' },
-  cajaNumero: { fontSize: '24vh', fontWeight: '900', color: '#FF0000', lineHeight: 0.8 },
-  turnoFooter: { 
-    fontSize: '5vh', backgroundColor: '#FF0000', color: '#fff', 
-    padding: '1vh 2vw', borderRadius: '15px', fontWeight: 'bold' 
-  },
+  mensaje: { fontSize: '5vh', fontWeight: 'bold', color: '#FF0000' },
+  cajaLabel: { fontSize: '6vh', fontWeight: 'bold', color: '#FF0000' },
+  cajaNumero: { fontSize: '30vh', fontWeight: '900', color: '#FF0000', lineHeight: 0.8 },
   esperando: { textAlign: 'center', color: '#FF0000' },
-  textoEspera: { fontSize: '6vh', fontWeight: 'bold' },
-  subtextoEspera: { fontSize: '2vh', opacity: 0.5 },
-  displayActivo: { boxShadow: '0 0 30px rgba(255, 0, 0, 0.2)' }
+  textoEspera: { fontSize: '7vh', fontWeight: 'bold' },
+  subtextoEspera: { fontSize: '3vh', opacity: 0.5 },
+  displayActivo: { boxShadow: '0 0 40px rgba(255, 0, 0, 0.4)' }
 };
 
 export default ClienteFuncional;
