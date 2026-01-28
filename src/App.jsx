@@ -23,9 +23,9 @@ function App() {
   console.log('  WebSocket:', WS_URL);
   
   return (
-    <div className="app">
+    <div className="app" style={appStyles.appContainer}>
       {/* Selector de modo */}
-      <div className="modo-selector">
+      <div className="modo-selector" style={appStyles.selector}>
         <button 
           className={modo === 'cajero' ? 'active' : ''}
           onClick={() => setModo('cajero')}
@@ -40,28 +40,58 @@ function App() {
         </button>
       </div>
 
-      {/* Mostrar componente según el modo */}
-      {modo === 'cajero' ? (
-        <Cajero apiUrl={API_URL} />
-      ) : (
-        <Cliente apiUrl={API_URL} wsUrl={WS_URL} />
-      )}
+      {/* CONTENEDOR ELÁSTICO: Este es el secreto */}
+      <div style={appStyles.mainContent}>
+        {modo === 'cajero' ? (
+          <Cajero apiUrl={API_URL} />
+        ) : (
+          <Cliente apiUrl={API_URL} wsUrl={WS_URL} />
+        )}
+      </div>
 
-      {/* Info del sistema */}
-      <div className="info-dev">
+      {/* Info del sistema (Tu Footer) */}
+      <div className="info-dev" style={appStyles.footer}>
         <p>
           {import.meta.env.PROD ? '🚀 PRODUCCIÓN' : '🛠️ DESARROLLO'} | 
           Modo: <strong>{modo.toUpperCase()}</strong>
         </p>
-        <p>
-          Desarrollado por
-        </p>
-        <p className="hint">
-          FullStack Vera Santiago
-        </p>
+        <p>Desarrollado por</p>
+        <p className="hint">FullStack Vera Santiago</p>
       </div>
     </div>
   );
 }
+
+// Estilos rápidos para App.js para asegurar el largo
+const appStyles = {
+  appContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100vh', // Ocupa el 100% de la ventana
+    width: '100vw',
+    overflow: 'hidden', // Evita scroll doble
+    margin: 0,
+    padding: 0
+  },
+  selector: {
+    flexShrink: 0, // No deja que el selector se achique
+    padding: '10px',
+    textAlign: 'center'
+  },
+  mainContent: {
+    flex: 1, // <--- Esto estira el Cliente hasta el footer
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden', // Importante para que el video no se salga
+    minHeight: 0
+  },
+  footer: {
+    flexShrink: 0, // No deja que el footer se achique o se suba
+    textAlign: 'center',
+    padding: '5px',
+    backgroundColor: '#f8f8f8',
+    borderTop: '1px solid #ddd'
+  }
+};
 
 export default App;
