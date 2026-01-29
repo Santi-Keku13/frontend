@@ -3,6 +3,25 @@ import React, { useState, useEffect, useRef } from 'react';
 const ClienteFuncional = ({ apiUrl, wsUrl }) => {
   const [ultimoTurno, setUltimoTurno] = useState(null);
   const wsRef = useRef(null);
+  const timerRef = useRef(null); // Referencia para el temporizador
+
+  // Lógica del Temporizador de 10 minutos
+  useEffect(() => {
+    // Si hay un turno activo, iniciamos la cuenta regresiva
+    if (ultimoTurno) {
+      // Limpiamos cualquier timer previo para no acumularlos
+      if (timerRef.current) clearTimeout(timerRef.current);
+
+      timerRef.current = setTimeout(() => {
+        setUltimoTurno(null); // Volver al estado "BIENVENIDOS"
+      }, 10 * 60 * 1000); // 10 minutos en milisegundos
+    }
+
+    // Limpieza al desmontar el componente
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [ultimoTurno]);
 
   useEffect(() => {
     const connect = () => {
@@ -57,14 +76,12 @@ const ClienteFuncional = ({ apiUrl, wsUrl }) => {
         </header>
 
         <main style={styles.mainContent}>
-          {/* SECCIÓN DE IMAGEN MEJORADA */}
           <div style={{
             ...styles.videoSection,
             backgroundImage: `url(${imagenPropaganda})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}>
-            {/* Overlay de desenfoque para que no se vean bordes negros */}
             <div style={styles.blurOverlay}>
               <img 
                 key="video-display"
@@ -84,7 +101,6 @@ const ClienteFuncional = ({ apiUrl, wsUrl }) => {
                 <div style={styles.contentWrapper}>
                   <div style={styles.mensaje}>PASE A</div>
                   <div style={styles.cajaLabel}>CAJA</div>
-                  <div style={styles.cajaNumero}>{ultimoTurno.caja}</div>
                 </div>
               ) : (
                 <div style={styles.esperando}>
@@ -100,6 +116,7 @@ const ClienteFuncional = ({ apiUrl, wsUrl }) => {
   );
 };
 
+// ... (tus estilos se mantienen iguales)
 const styles = {
   viewPort: { 
     height: 'calc(100vh - 160px)', 
@@ -118,7 +135,7 @@ const styles = {
   },
   header: { 
     textAlign: 'center', 
-    height: '12%', // Un poco más pequeño para dar aire abajo
+    height: '12%', 
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center'
@@ -138,7 +155,7 @@ const styles = {
     paddingBottom: '10px'
   },
   videoSection: { 
-    flex: 1.8, // Un poco más ancha para la imagen
+    flex: 1.8, 
     backgroundColor: '#000', 
     borderRadius: '25px', 
     overflow: 'hidden',
@@ -149,8 +166,8 @@ const styles = {
   blurOverlay: {
     width: '100%',
     height: '100%',
-    backdropFilter: 'blur(20px)', // Esto difumina el fondo
-    backgroundColor: 'rgba(0,0,0,0.3)', // Oscurece un poco el fondo
+    backdropFilter: 'blur(20px)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center'
@@ -158,7 +175,7 @@ const styles = {
   videoPlayer: { 
     maxWidth: '100%', 
     maxHeight: '100%', 
-    objectFit: 'contain', // <--- AQUÍ: NO corta la imagen
+    objectFit: 'contain',
     display: 'block',
     zIndex: 2
   },
